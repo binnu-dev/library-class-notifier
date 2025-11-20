@@ -33,13 +33,24 @@ class CheongcheonScraper:
                         if match:
                             link = self.DETAIL_BASE_URL + match.group(1)
                     
-                    # Date
-                    date_elem = row.select_one('td.center.td4')
-                    date = date_elem.get_text(strip=True) if date_elem else "N/A"
+                    # Get all cells
+                    cells = row.find_all('td')
                     
-                    # Status
-                    status_elem = row.select_one('td.center.last.td6 b.stat')
-                    status = status_elem.text.strip() if status_elem else "N/A"
+                    # Date is usually the 4th column (index 3)
+                    if len(cells) > 3:
+                        date_elem = cells[3]
+                        # Clean up excessive whitespace and newlines
+                        raw_date = date_elem.get_text(strip=True, separator=' ')
+                        date = ' '.join(raw_date.split())
+                    else:
+                        date = "N/A"
+                    
+                    # Status is usually the 6th column (index 5)
+                    if len(cells) > 5:
+                        status_elem = cells[5]
+                        status = status_elem.get_text(strip=True)
+                    else:
+                        status = "N/A"
                     
                     lectures.append({
                         'title': title,
@@ -60,5 +71,8 @@ class CheongcheonScraper:
 if __name__ == "__main__":
     scraper = CheongcheonScraper()
     lectures = scraper.get_lectures()
+    
+    print(f"{'Title':<50} | {'Date':<30} | {'Status':<10}")
+    print("-" * 100)
     for l in lectures:
-        print(l)
+        print(f"{l['title'][:48]:<50} | {l['date'][:28]:<30} | {l['status']:<10}")
