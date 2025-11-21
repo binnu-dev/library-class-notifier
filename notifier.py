@@ -12,23 +12,12 @@ class DiscordNotifier:
             return
 
         embed = {
-            "title": f"📚 새로운 수업: {lecture['title']}",
+            "title": f"[{lecture.get('library', '도서관')}] {lecture['title']}",
+            "description": f"새로운 강좌가 등록되었습니다!\n\n**기간**: {lecture['date']}\n**상태**: {lecture['status']}",
             "url": lecture['link'],
-            "color": 5814783,  # Blue-ish
-            "fields": [
-                {
-                    "name": "상태",
-                    "value": lecture['status'],
-                    "inline": True
-                },
-                {
-                    "name": "일시",
-                    "value": lecture['date'],
-                    "inline": True
-                }
-            ],
+            "color": 5814783,  # Blue/Purple color
             "footer": {
-                "text": "청천도서관 알리미"
+                "text": "Library Class Notifier"
             }
         }
 

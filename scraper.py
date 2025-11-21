@@ -2,20 +2,26 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-class CheongcheonScraper:
-    BASE_URL = "https://www.bppl.or.kr/chungcheon/menu/10400/program/30022/lectureList.do"
-    DETAIL_BASE_URL = "https://www.bppl.or.kr/chungcheon/menu/10400/program/30022/lectureDetail.do?lectureIdx="
+class LibraryScraper:
+    def __init__(self, library_name, url):
+        self.library_name = library_name
+        self.url = url
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        # Derive detail base URL from the list URL
+        # e.g., .../lectureList.do -> .../lectureDetail.do?lectureIdx=
+        self.detail_base_url = url.replace('lectureList.do', 'lectureDetail.do?lectureIdx=')
 
     def get_lectures(self):
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            response = requests.get(self.BASE_URL, headers=headers)
+            response = requests.get(self.url, headers=self.headers)
             response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'html.parser')
             
+            soup = BeautifulSoup(response.text, 'html.parser')
             lectures = []
+            
+            # Select all rows in the board body
             rows = soup.select('#board_tbody > tr')
             
             for row in rows:
@@ -31,7 +37,7 @@ class CheongcheonScraper:
                         onclick = link_elem['onclick']
                         match = re.search(r"fnDetail\('(\d+)'\)", onclick)
                         if match:
-                            link = self.DETAIL_BASE_URL + match.group(1)
+                            link = self.detail_base_url + match.group(1)
                     
                     # Get all cells
                     cells = row.find_all('td')
@@ -53,26 +59,28 @@ class CheongcheonScraper:
                         status = "N/A"
                     
                     lectures.append({
+                        'library': self.library_name,
                         'title': title,
                         'link': link,
                         'date': date,
                         'status': status
                     })
                 except Exception as e:
-                    print(f"Error parsing row: {e}")
+                    print(f"Error parsing row in {self.library_name}: {e}")
                     continue
                     
             return lectures
             
         except Exception as e:
-            print(f"Error fetching data: {e}")
+            print(f"Error fetching data for {self.library_name}: {e}")
             return []
 
 if __name__ == "__main__":
-    scraper = CheongcheonScraper()
+    # Test with Cheongcheon Library
+    scraper = LibraryScraper("청천도서관", "https://www.bppl.or.kr/chungcheon/menu/10400/program/30022/lectureList.do")
     lectures = scraper.get_lectures()
     
-    print(f"{'Title':<50} | {'Date':<30} | {'Status':<10}")
+    print(f"{'Library':<15} | {'Title':<40} | {'Date':<30} | {'Status':<10}")
     print("-" * 100)
     for l in lectures:
-        print(f"{l['title'][:48]:<50} | {l['date'][:28]:<30} | {l['status']:<10}")
+        print(f"{l['library']:<15} | {l['title'][:38]:<40} | {l['date'][:28]:<30} | {l['status']:<10}")
