@@ -58,9 +58,11 @@ def default_window(today: date | None = None, lookback_days: int = 7) -> DateWin
 class Settings:
     """Everything the pipeline needs, assembled from the environment."""
 
-    # Data source
+    # Data source: "demo" | "patentsview" | "bigquery"
+    source: str = "bigquery"
     gcp_project: str | None = None
     bigquery_location: str = "US"
+    patentsview_api_key: str | None = None
 
     # Embeddings
     embedding_backend: str = "auto"      # auto | sentence-transformers | hashing
@@ -85,6 +87,7 @@ class Settings:
 
     # Behaviour
     dry_run: bool = False                # build brief but do not send email
+    out_path: str | None = None          # also write the brief text to this file
 
     @classmethod
     def from_env(cls, env: dict | None = None) -> "Settings":
@@ -107,8 +110,10 @@ class Settings:
                    if r.strip())
 
         return cls(
+            source=_get("PATENT_SOURCE", "bigquery"),
             gcp_project=_get("GCP_PROJECT") or _get("GOOGLE_CLOUD_PROJECT"),
             bigquery_location=_get("BIGQUERY_LOCATION", "US"),
+            patentsview_api_key=_get("PATENTSVIEW_API_KEY"),
             embedding_backend=_get("EMBEDDING_BACKEND", "auto"),
             embedding_model=_get("EMBEDDING_MODEL",
                                  "sentence-transformers/all-MiniLM-L6-v2"),
@@ -124,4 +129,5 @@ class Settings:
             email_from=_get("EMAIL_FROM") or _get("SMTP_USER"),
             email_to=to,
             dry_run=_get("PATENT_DRY_RUN", "false").lower() in ("1", "true", "yes"),
+            out_path=_get("PATENT_OUT"),
         )

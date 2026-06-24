@@ -27,6 +27,8 @@ patent_landscape/
   models.py            # Patent / BriefItem 레코드
   source.py            # PatentSource 프로토콜 + 테스트용 FakePatentSource
   bigquery_source.py   # Google Patents 공개셋(BigQuery) 구현 + 순수 쿼리 빌더
+  patentsview_source.py# 무료 PatentsView API 구현 (가벼운 경로)
+  sample_data.py       # --source demo 용 샘플 데이터 + 고정 윈도우
   embeddings.py        # 임베딩 백엔드 (sentence-transformers / hashing 폴백)
   lens_a.py            # 렌즈 A
   lens_b.py            # 렌즈 B
@@ -41,30 +43,53 @@ patent_landscape/
 `anchors/*.md`는 사람이 읽고 편집하는 앵커, `registry.py`는 그 앵커를 쿼리로
 옮긴 운영 레이어다. 앵커를 고치면 `registry.py`도 같이 손본다.
 
-## 데이터 소스
+## 데이터 소스 (세 가지, `--source`로 선택)
 
-1차: **Google Patents BigQuery 공개셋** (`patents-public-data.patents.publications`).
-보강(계획): USPTO·EPO 공식 API — `bigquery_source.py`의 seam으로만 박아 둠 (v1 미구현).
+| 소스 | 비용/셋업 | 커버리지 | 신선도 | 용도 |
+|---|---|---|---|---|
+| `demo` | **없음** (번들 샘플) | 가상 14건 | 고정 | 즉시 테스트·데모 |
+| `patentsview` | **무료** (무료 키 1개) | 미국 등록특허 | **분기 갱신**, 날짜=등록일 | 가벼운 실데이터 |
+| `bigquery` | GCP 청구 | 글로벌 공개공보 | 주간/신선 | 정식 v1 |
+
+- 1차(정식): **Google Patents BigQuery 공개셋** (`patents-public-data.patents.publications`).
+- 가벼운 무료: **PatentsView PatentSearch API** — 무료 키만 있으면 됨
+  (https://patentsview.org/apis, 즉시 발급). 단, **미국 등록특허·분기 갱신**이라
+  지난 7일 윈도우는 보통 비어 있으니 `--lookback-days 365`로 넓혀 쓴다.
+- 보강(계획): USPTO·EPO 공식 API — `bigquery_source.py`의 seam으로만 박아 둠 (v1 미구현).
+- 세 소스 모두 같은 `PatentSource` 인터페이스라 파이프라인 코드는 그대로다.
 
 ## 동작
 
 ```bash
-# 의존성
+# 1) 즉시 데모 — 의존성·키·이메일 전부 불필요
+python -m patent_landscape.main --source demo --dry-run
+
+# 2) 무료 실데이터 — requests만 설치 + 무료 키
+pip install requests
+export PATENTSVIEW_API_KEY=...        # https://patentsview.org/apis
+python -m patent_landscape.main --source patentsview --dry-run --lookback-days 365
+
+# 3) 정식 (BigQuery + 이메일)
 pip install -r patent_landscape/requirements.txt
+python -m patent_landscape.main --source bigquery
 
-# 드라이런: 쿼리는 돌리되 이메일은 안 보내고 brief를 stdout에 출력
-python -m patent_landscape.main --dry-run
-
-# 정식 실행 (쿼리 + 이메일)
-python -m patent_landscape.main
+# 결과를 파일로도 저장
+python -m patent_landscape.main --source demo --dry-run --out brief.txt
 ```
 
-윈도우는 기본 직전 7일(어제까지). `--lookback-days N`으로 조정.
+윈도우는 기본 직전 7일(어제까지). `--lookback-days N`으로 조정. `demo`는
+클럭과 무관하게 고정 윈도우를 쓴다.
+
+**이메일 없이도 돈다**: `SMTP_HOST`가 없거나 `--dry-run`이면 brief를 stdout에
+출력(+`--out`이면 파일에도 저장)하고, 발송은 건너뛴다. SMTP가 설정돼 있고
+`--dry-run`이 아닐 때만 실제로 메일을 보낸다.
 
 ## 환경변수
 
 | 변수 | 용도 |
 |---|---|
+| `PATENT_SOURCE` | `demo` / `patentsview` / `bigquery` (CLI `--source`가 우선) |
+| `PATENTSVIEW_API_KEY` | 무료 PatentsView 키 (patentsview 소스용) |
 | `GCP_PROJECT` | BigQuery 쿼리를 청구할 GCP 프로젝트 |
 | `GOOGLE_APPLICATION_CREDENTIALS` | 서비스계정 키 파일 경로 |
 | `EMBEDDING_BACKEND` | `auto`(기본) / `sentence-transformers` / `hashing` |
@@ -73,6 +98,7 @@ python -m patent_landscape.main
 | `EMAIL_FROM` `PATENT_EMAIL_TO` | 발신/수신(쉼표 구분) |
 | `PATENT_LOOKBACK_DAYS` | 공개일 윈도우 길이(기본 7) |
 | `PATENT_DRY_RUN` | `true`면 발송 생략 |
+| `PATENT_OUT` | brief 텍스트를 저장할 파일 경로(`--out`) |
 | `LENS_B_TOP_K` `LENS_B_MIN_SIMILARITY` `LENS_B_CANDIDATE_LIMIT` `LENS_A_LIMIT` | 렌즈 사이징 |
 
 ## 트리거

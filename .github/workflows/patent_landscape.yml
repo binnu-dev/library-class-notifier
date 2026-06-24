@@ -2,15 +2,25 @@ name: Patent Landscape (weekly brief)
 
 # Trigger: weekly, after the gazette drops (화·수 1회). Wednesday 00:00 UTC
 # = 09:00 KST Wednesday. Also runnable on demand.
+#
+# Source is chosen by the PATENT_SOURCE repo variable (default: patentsview,
+# the free path). For the lightweight setup you only need one secret —
+# PATENTSVIEW_API_KEY. If no SMTP_* secrets are set the brief is printed to the
+# Actions log instead of emailed, so it runs green with zero email setup.
 on:
   schedule:
     - cron: '0 0 * * 3'
   workflow_dispatch:
     inputs:
+      source:
+        description: 'Data source'
+        type: choice
+        options: [demo, patentsview, bigquery]
+        default: patentsview
       dry_run:
         description: 'Build & print the brief without sending email'
         type: boolean
-        default: false
+        default: true
       lookback_days:
         description: 'Publication window length (days)'
         type: string
@@ -19,6 +29,8 @@ on:
 jobs:
   weekly-brief:
     runs-on: ubuntu-latest
+    env:
+      PATENT_SOURCE: ${{ github.event.inputs.source || vars.PATENT_SOURCE || 'patentsview' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,6 +46,7 @@ jobs:
           pip install -r patent_landscape/requirements.txt
 
       - name: Write GCP service account key
+        if: env.PATENT_SOURCE == 'bigquery'
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
@@ -43,6 +56,7 @@ jobs:
       - name: Run weekly patent landscape
         env:
           GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+          PATENTSVIEW_API_KEY: ${{ secrets.PATENTSVIEW_API_KEY }}
           EMBEDDING_BACKEND: ${{ vars.EMBEDDING_BACKEND || 'auto' }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}

@@ -1,9 +1,11 @@
-# Runtime dependencies for the patent-landscape workflow.
+# Dependencies by tier. The pipeline core (lenses, scoring, brief, email) is
+# pure stdlib; everything below is only for a specific source/backend.
 #
-# The pipeline itself (lenses, scoring, brief, email) is pure stdlib. These
-# packages are only needed for the production data source and the semantic
-# embedding backend; the test suite runs without them via the hashing
-# fallback source/provider.
+#   --source demo         : no dependencies at all (bundled sample data).
+#   --source patentsview  : needs `requests` (free API; set PATENTSVIEW_API_KEY).
+#   --source bigquery     : needs google-cloud-bigquery (+ GCP credentials).
+#   semantic embeddings   : needs sentence-transformers (else hashing fallback).
 
-google-cloud-bigquery>=3.11        # lens A/B source: Google Patents public dataset
-sentence-transformers>=2.2         # lens B embedding backend (semantic top-k)
+requests>=2.28                     # lightweight free source: PatentsView API
+google-cloud-bigquery>=3.11        # heavy source: Google Patents public dataset
+sentence-transformers>=2.2         # semantic embedding backend (else hashing)
